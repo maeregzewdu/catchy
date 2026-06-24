@@ -4,24 +4,26 @@ import (
 	"database/sql"
 	"embed"
 	"fmt"
+	"os"
 	"path/filepath"
 	"sort"
 	"strings"
 
 	_ "modernc.org/sqlite"
-
-	"github.com/maeregzewdu/catchy/internal/model"
 )
 
 //go:embed migrations/*.sql
 var migrationFS embed.FS
 
 type sqliteStore struct {
-	db *sql.DB
+	db      *sql.DB
+	dataDir string
+	key     []byte
 }
 
 // New opens (or creates) the SQLite database in dataDir and runs all pending migrations.
-func New(dataDir string) (Store, error) {
+// key must be 32 bytes (AES-256); it is used to encrypt account passwords at rest.
+func New(dataDir string, key []byte) (Store, error) {
 	dbPath := filepath.Join(dataDir, "catchy.db")
 
 	db, err := sql.Open("sqlite", dbPath)
@@ -40,7 +42,7 @@ func New(dataDir string) (Store, error) {
 		}
 	}
 
-	s := &sqliteStore{db: db}
+	s := &sqliteStore{db: db, dataDir: dataDir, key: key}
 	if err := s.runMigrations(); err != nil {
 		db.Close()
 		return nil, fmt.Errorf("running migrations: %w", err)
@@ -103,16 +105,128 @@ func (s *sqliteStore) runMigrations() error {
 	return nil
 }
 
-// splitStatements splits a SQL string on semicolons, dropping empty fragments.
+// splitStatements splits a SQL string on semicolons, correctly handling
+// string literals, comments, and BEGIN...END trigger bodies.
 func splitStatements(sql string) []string {
 	var out []string
-	for _, s := range strings.Split(sql, ";") {
-		s = strings.TrimSpace(s)
-		if s != "" {
-			out = append(out, s)
+	var buf strings.Builder
+	depth := 0 // BEGIN...END nesting depth (for trigger bodies)
+	i, n := 0, len(sql)
+
+	for i < n {
+		ch := sql[i]
+
+		// Single-quoted string literal '...'
+		if ch == '\'' {
+			buf.WriteByte(ch)
+			i++
+			for i < n {
+				c := sql[i]
+				buf.WriteByte(c)
+				i++
+				if c == '\'' {
+					if i < n && sql[i] == '\'' { // escaped ''
+						buf.WriteByte(sql[i])
+						i++
+					} else {
+						break
+					}
+				}
+			}
+			continue
 		}
+
+		// Double-quoted identifier "..."
+		if ch == '"' {
+			buf.WriteByte(ch)
+			i++
+			for i < n && sql[i] != '"' {
+				buf.WriteByte(sql[i])
+				i++
+			}
+			if i < n {
+				buf.WriteByte(sql[i])
+				i++
+			}
+			continue
+		}
+
+		// Line comment -- ...
+		if ch == '-' && i+1 < n && sql[i+1] == '-' {
+			buf.WriteByte(ch)
+			i++
+			for i < n && sql[i] != '\n' {
+				buf.WriteByte(sql[i])
+				i++
+			}
+			continue
+		}
+
+		// Block comment /* ... */
+		if ch == '/' && i+1 < n && sql[i+1] == '*' {
+			buf.WriteByte(ch)
+			i++
+			for i < n {
+				c := sql[i]
+				buf.WriteByte(c)
+				i++
+				if c == '*' && i < n && sql[i] == '/' {
+					buf.WriteByte('/')
+					i++
+					break
+				}
+			}
+			continue
+		}
+
+		// Track BEGIN...END nesting so semicolons inside trigger bodies are not split points.
+		if i == 0 || !isIdentByte(sql[i-1]) {
+			if sqlKeywordAt(sql, i, "BEGIN") {
+				depth++
+			} else if sqlKeywordAt(sql, i, "END") && depth > 0 {
+				depth--
+			}
+		}
+
+		if ch == ';' && depth == 0 {
+			if s := strings.TrimSpace(buf.String()); s != "" {
+				out = append(out, s)
+			}
+			buf.Reset()
+			i++
+			continue
+		}
+
+		buf.WriteByte(ch)
+		i++
+	}
+	if s := strings.TrimSpace(buf.String()); s != "" {
+		out = append(out, s)
 	}
 	return out
+}
+
+// sqlKeywordAt reports whether sql[i:] starts with keyword (case-insensitive),
+// followed by a non-identifier character.
+func sqlKeywordAt(sql string, i int, keyword string) bool {
+	if i+len(keyword) > len(sql) {
+		return false
+	}
+	for j := 0; j < len(keyword); j++ {
+		c := sql[i+j]
+		if c >= 'a' && c <= 'z' {
+			c -= 32
+		}
+		if c != keyword[j] {
+			return false
+		}
+	}
+	after := i + len(keyword)
+	return after >= len(sql) || !isIdentByte(sql[after])
+}
+
+func isIdentByte(c byte) bool {
+	return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_'
 }
 
 // ── Health ────────────────────────────────────────────────────────────────────
@@ -125,96 +239,31 @@ func (s *sqliteStore) Close() error {
 	return s.db.Close()
 }
 
-// ── Trap (Phase 2) ────────────────────────────────────────────────────────────
+// ── Maintenance ───────────────────────────────────────────────────────────────
 
-func (s *sqliteStore) StoreTrapMessage(_ *model.Message, _ []model.Attachment) error {
-	return ErrNotImplemented
-}
-
-func (s *sqliteStore) ListTrapMessages(_ TrapFilter) ([]*model.Message, error) {
-	return nil, ErrNotImplemented
-}
-
-func (s *sqliteStore) GetTrapMessage(_ string) (*model.Message, error) {
-	return nil, ErrNotImplemented
-}
-
-func (s *sqliteStore) DeleteTrapMessage(_ string) error {
-	return ErrNotImplemented
-}
-
-func (s *sqliteStore) ClearTrapMessages() error {
-	return ErrNotImplemented
-}
-
-// ── Accounts (Phase 3) ────────────────────────────────────────────────────────
-
-func (s *sqliteStore) CreateAccount(_ *model.Account) error {
-	return ErrNotImplemented
-}
-
-func (s *sqliteStore) GetAccount(_ string) (*model.Account, error) {
-	return nil, ErrNotImplemented
-}
-
-func (s *sqliteStore) ListAccounts() ([]*model.Account, error) {
-	return nil, ErrNotImplemented
-}
-
-func (s *sqliteStore) UpdateAccount(_ *model.Account) error {
-	return ErrNotImplemented
-}
-
-func (s *sqliteStore) DeleteAccount(_ string) error {
-	return ErrNotImplemented
-}
-
-// ── Messages (Phase 4) ────────────────────────────────────────────────────────
-
-func (s *sqliteStore) CreateMessage(_ *model.Message) error {
-	return ErrNotImplemented
-}
-
-func (s *sqliteStore) GetMessage(_ string) (*model.Message, error) {
-	return nil, ErrNotImplemented
-}
-
-func (s *sqliteStore) ListMessages(_, _ string, _ MessageFilter) ([]*model.Message, error) {
-	return nil, ErrNotImplemented
-}
-
-func (s *sqliteStore) UpdateMessage(_ *model.Message) error {
-	return ErrNotImplemented
-}
-
-func (s *sqliteStore) PatchMessage(_ string, _ *bool, _ *bool) error {
-	return ErrNotImplemented
-}
-
-func (s *sqliteStore) DeleteMessage(_ string) error {
-	return ErrNotImplemented
-}
-
-func (s *sqliteStore) GetAttachment(_ string) (*model.Attachment, error) {
-	return nil, ErrNotImplemented
-}
-
-func (s *sqliteStore) ListAttachments(_ string) ([]model.Attachment, error) {
-	return nil, ErrNotImplemented
-}
-
-// ── Sync state (Phase 4) ──────────────────────────────────────────────────────
-
-func (s *sqliteStore) GetSyncState(_, _ string) (*model.SyncState, error) {
-	return nil, ErrNotImplemented
-}
-
-func (s *sqliteStore) UpsertSyncState(_ *model.SyncState) error {
-	return ErrNotImplemented
-}
-
-// ── Search (Phase 6) ──────────────────────────────────────────────────────────
-
-func (s *sqliteStore) SearchMessages(_, _, _ string) ([]*model.Message, error) {
-	return nil, ErrNotImplemented
+// CleanOrphanAttachments removes any attachment directories that have no
+// corresponding message in the database (e.g. left over from crashes).
+func (s *sqliteStore) CleanOrphanAttachments() error {
+	dir := filepath.Join(s.dataDir, "attachments")
+	entries, err := os.ReadDir(dir)
+	if os.IsNotExist(err) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	for _, e := range entries {
+		if !e.IsDir() {
+			continue
+		}
+		id := e.Name()
+		var n int
+		if err := s.db.QueryRow("SELECT COUNT(*) FROM messages WHERE id = ?", id).Scan(&n); err != nil {
+			continue
+		}
+		if n == 0 {
+			os.RemoveAll(filepath.Join(dir, id)) //nolint:errcheck
+		}
+	}
+	return nil
 }

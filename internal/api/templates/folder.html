@@ -1,0 +1,45 @@
+{{define "folder-page"}}
+{{template "doc-head" .}}
+{{template "sidebar" .}}
+<div class="flex-1 flex flex-col min-w-0">
+  <div class="h-12 border-b border-slate-800 flex items-center gap-3 px-4 shrink-0 bg-slate-900/40">
+    <h1 class="font-semibold text-slate-200">
+      {{if .Account}}<span class="text-slate-400 font-normal">{{.Account.Name}} /</span> {{end}}{{if .Folder}}{{.Folder}}{{else}}INBOX{{end}}
+    </h1>
+    {{if .Messages}}<span class="text-slate-500 text-xs">{{len .Messages}} messages</span>{{end}}
+    <div class="ml-auto flex items-center gap-2">
+      {{if .Account}}
+      <button hx-post="/api/v1/accounts/{{.Account.ID}}/sync"
+              hx-swap="none"
+              class="px-3 py-1.5 text-xs rounded-md bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 transition-colors border border-blue-800/40">
+        Sync Now
+      </button>
+      {{end}}
+    </div>
+  </div>
+  <div class="flex-1 flex min-h-0">
+    <div id="msg-list" class="w-80 shrink-0 overflow-y-auto border-r border-slate-800">
+      {{template "folder-list" .}}
+    </div>
+    <div id="msg-pane" class="flex-1 overflow-auto">
+      {{if .Message}}
+        {{template "message-detail" .}}
+      {{else}}
+        {{template "empty-pane" .}}
+      {{end}}
+    </div>
+  </div>
+</div>
+{{template "doc-foot" .}}
+{{end}}
+
+{{define "folder-list"}}
+{{if .Messages}}
+  {{range .Messages}}{{template "msg-row" .}}{{end}}
+{{else}}
+  <div class="flex flex-col items-center justify-center py-16 gap-2 select-none">
+    <p class="text-slate-600 text-sm">No messages</p>
+    <p class="text-slate-700 text-xs">Sync the account to fetch messages</p>
+  </div>
+{{end}}
+{{end}}

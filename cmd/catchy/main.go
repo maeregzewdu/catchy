@@ -15,6 +15,7 @@ import (
 
 	"github.com/maeregzewdu/catchy/internal/api"
 	"github.com/maeregzewdu/catchy/internal/config"
+	catchymail "github.com/maeregzewdu/catchy/internal/mail"
 	"github.com/maeregzewdu/catchy/internal/store"
 )
 
@@ -26,12 +27,19 @@ func main() {
 		fmt.Fprintln(os.Stderr, "usage: catchy <command> [flags]")
 		fmt.Fprintln(os.Stderr, "commands:")
 		fmt.Fprintln(os.Stderr, "  serve   start the catchy server")
+		fmt.Fprintln(os.Stderr, "  seed    populate the database with demo data")
 		os.Exit(1)
 	}
 
 	switch os.Args[1] {
 	case "serve":
 		if err := runServe(os.Args[2:]); err != nil {
+			slog.Error("fatal", "err", err)
+			os.Exit(1)
+		}
+	case "seed":
+		setupLogging("info")
+		if err := runSeed(os.Args[2:]); err != nil {
 			slog.Error("fatal", "err", err)
 			os.Exit(1)
 		}
@@ -65,13 +73,22 @@ func runServe(args []string) error {
 	if err != nil {
 		return fmt.Errorf("secret key: %w", err)
 	}
-	_ = key // used in Phase 3 for credential encryption
-
-	db, err := store.New(cfg.Data.Dir)
+	db, err := store.New(cfg.Data.Dir, key)
 	if err != nil {
 		return fmt.Errorf("opening database: %w", err)
 	}
 	defer db.Close()
+
+	if err := db.CleanOrphanAttachments(); err != nil {
+		slog.Warn("orphan attachment cleanup", "err", err)
+	}
+
+	// Start SMTP trap server.
+	trapAddr := fmt.Sprintf("%s:%d", cfg.Trap.Host, cfg.Trap.Port)
+	trapSrv, err := catchymail.StartTrapServer(trapAddr, db, cfg.Data.Dir)
+	if err != nil {
+		return fmt.Errorf("starting smtp trap: %w", err)
+	}
 
 	router := api.NewRouter(db, cfg, version)
 	addr := fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.Port)
@@ -87,12 +104,27 @@ func runServe(args []string) error {
 	serverErr := make(chan error, 1)
 	go func() {
 		slog.Info("catchy started",
-			"addr", addr,
-			"trap", fmt.Sprintf("%s:%d", cfg.Trap.Host, cfg.Trap.Port),
+			"http", addr,
+			"smtp_trap", trapAddr,
 			"version", version,
 		)
 		if err := srv.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
 			serverErr <- err
+		}
+	}()
+
+	// Background IMAP sync loop.
+	syncCtx, syncCancel := context.WithCancel(context.Background())
+	go func() {
+		ticker := time.NewTicker(time.Duration(cfg.Sync.PollIntervalSeconds) * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-syncCtx.Done():
+				return
+			case <-ticker.C:
+				syncAllAccounts(syncCtx, db, cfg)
+			}
 		}
 	}()
 
@@ -101,10 +133,15 @@ func runServe(args []string) error {
 
 	select {
 	case err := <-serverErr:
+		syncCancel()
 		return fmt.Errorf("server: %w", err)
 	case sig := <-quit:
 		slog.Info("shutting down", "signal", sig.String())
 	}
+
+	// Shutdown order: cancel sync, stop SMTP trap, drain HTTP.
+	syncCancel()
+	trapSrv.Close() //nolint:errcheck
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -115,6 +152,23 @@ func runServe(args []string) error {
 
 	slog.Info("catchy stopped")
 	return nil
+}
+
+func syncAllAccounts(ctx context.Context, s store.Store, cfg *config.Config) {
+	accounts, err := s.ListAccounts()
+	if err != nil {
+		slog.Error("sync: list accounts", "err", err)
+		return
+	}
+	for _, a := range accounts {
+		if ctx.Err() != nil {
+			return
+		}
+		slog.Info("syncing account", "email", a.Email)
+		if err := catchymail.SyncAccount(ctx, a, s, cfg.Data.Dir, cfg.Sync.DefaultFolders); err != nil {
+			slog.Error("sync account", "email", a.Email, "err", err)
+		}
+	}
 }
 
 func setupLogging(level string) {

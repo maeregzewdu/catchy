@@ -9,6 +9,7 @@ import (
 var (
 	ErrNotFound       = errors.New("not found")
 	ErrNotImplemented = errors.New("not implemented")
+	ErrDuplicate      = errors.New("duplicate value")
 )
 
 // TrapFilter constrains ListTrapMessages results. Empty fields are ignored.
@@ -18,10 +19,12 @@ type TrapFilter struct {
 	Subject string
 }
 
-// MessageFilter constrains ListMessages results. Nil pointer fields are ignored.
+// MessageFilter constrains ListMessages results. Nil/zero fields are ignored.
 type MessageFilter struct {
 	Read    *bool
 	Starred *bool
+	Limit   int // 0 = no limit
+	Offset  int
 }
 
 // Store is the single persistence interface for all catchy data.
@@ -46,7 +49,7 @@ type Store interface {
 	DeleteAccount(id string) error
 
 	// Messages (real accounts) — Phase 4
-	CreateMessage(msg *model.Message) error
+	CreateMessage(msg *model.Message, attachments []model.Attachment) error
 	GetMessage(id string) (*model.Message, error)
 	ListMessages(accountID, folder string, filters MessageFilter) ([]*model.Message, error)
 	UpdateMessage(msg *model.Message) error
@@ -61,4 +64,7 @@ type Store interface {
 
 	// Full-text search — Phase 6
 	SearchMessages(q, accountID, source string) ([]*model.Message, error)
+
+	// Maintenance
+	CleanOrphanAttachments() error
 }

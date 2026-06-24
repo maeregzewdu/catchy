@@ -27,8 +27,50 @@ func NewRouter(s store.Store, cfg *config.Config, version string) http.Handler {
 	r.Use(chimiddleware.Recoverer)
 	r.Use(corsMiddleware)
 
+	// ── Web UI ────────────────────────────────────────────────────────────────
+	r.Get("/", h.trapInbox)
+	r.Get("/trap/list", h.trapList)
+	r.Get("/accounts/{id}/folders/{folder}", h.accountFolder)
+	r.Get("/messages/{id}/detail", h.messageDetailPartial)
+	r.Get("/messages/{id}", h.messagePage)
+	r.Get("/search", h.searchWeb)
+	r.Get("/settings", h.settingsPage)
+	r.Post("/settings/accounts", h.createAccountWeb)
+	r.Delete("/settings/accounts/{id}", h.deleteAccountWeb)
+	r.Post("/settings/accounts/{id}/verify", h.verifyAccountWeb)
+
+	// ── JSON API ──────────────────────────────────────────────────────────────
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Get("/health", h.handleHealth)
+		r.Get("/search", h.searchMessages)
+
+		// Trap inbox
+		r.Route("/trap/messages", func(r chi.Router) {
+			r.Get("/", h.listTrapMessages)
+			r.Delete("/", h.clearTrapMessages)
+			r.Get("/{id}", h.getTrapMessage)
+			r.Patch("/{id}", h.patchTrapMessage)
+			r.Delete("/{id}", h.deleteTrapMessage)
+			r.Get("/{id}/attachments/{attId}", h.getTrapAttachment)
+		})
+
+		// Real accounts + messages
+		r.Route("/accounts", func(r chi.Router) {
+			r.Get("/", h.listAccounts)
+			r.Post("/", h.createAccount)
+			r.Get("/{id}", h.getAccount)
+			r.Put("/{id}", h.updateAccount)
+			r.Delete("/{id}", h.deleteAccount)
+			r.Post("/{id}/verify", h.verifyAccount)
+			r.Post("/{id}/sync", h.syncAccount)
+			r.Route("/{id}/messages", func(r chi.Router) {
+				r.Get("/", h.listMessages)
+				r.Get("/{msgId}", h.getMessage)
+				r.Patch("/{msgId}", h.patchMessage)
+				r.Delete("/{msgId}", h.deleteMessage)
+				r.Get("/{msgId}/attachments/{attId}", h.getMessageAttachment)
+			})
+		})
 	})
 
 	return r
