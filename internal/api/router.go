@@ -27,18 +27,6 @@ func NewRouter(s store.Store, cfg *config.Config, version string) http.Handler {
 	r.Use(chimiddleware.Recoverer)
 	r.Use(corsMiddleware)
 
-	// ── Web UI ────────────────────────────────────────────────────────────────
-	r.Get("/", h.trapInbox)
-	r.Get("/trap/list", h.trapList)
-	r.Get("/accounts/{id}/folders/{folder}", h.accountFolder)
-	r.Get("/messages/{id}/detail", h.messageDetailPartial)
-	r.Get("/messages/{id}", h.messagePage)
-	r.Get("/search", h.searchWeb)
-	r.Get("/settings", h.settingsPage)
-	r.Post("/settings/accounts", h.createAccountWeb)
-	r.Delete("/settings/accounts/{id}", h.deleteAccountWeb)
-	r.Post("/settings/accounts/{id}/verify", h.verifyAccountWeb)
-
 	// ── JSON API ──────────────────────────────────────────────────────────────
 	r.Route("/api/v1", func(r chi.Router) {
 		r.Get("/health", h.handleHealth)
@@ -51,6 +39,7 @@ func NewRouter(s store.Store, cfg *config.Config, version string) http.Handler {
 			r.Get("/{id}", h.getTrapMessage)
 			r.Patch("/{id}", h.patchTrapMessage)
 			r.Delete("/{id}", h.deleteTrapMessage)
+			r.Get("/{id}/raw", h.getTrapRawMIME)
 			r.Get("/{id}/attachments/{attId}", h.getTrapAttachment)
 		})
 
@@ -68,10 +57,15 @@ func NewRouter(s store.Store, cfg *config.Config, version string) http.Handler {
 				r.Get("/{msgId}", h.getMessage)
 				r.Patch("/{msgId}", h.patchMessage)
 				r.Delete("/{msgId}", h.deleteMessage)
+				r.Get("/{msgId}/raw", h.getMessageRawMIME)
+				r.Get("/{msgId}/attachments", h.listMessageAttachments)
 				r.Get("/{msgId}/attachments/{attId}", h.getMessageAttachment)
 			})
 		})
 	})
+
+	// ── SPA catch-all (must be last) ──────────────────────────────────────────
+	h.registerSPA(r)
 
 	return r
 }

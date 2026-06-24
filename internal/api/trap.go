@@ -119,6 +119,23 @@ func (h *Handler) patchTrapMessage(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
+// GET /api/v1/trap/messages/:id/raw
+func (h *Handler) getTrapRawMIME(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+	msg, err := h.store.GetTrapMessage(id)
+	if errors.Is(err, store.ErrNotFound) {
+		writeError(w, http.StatusNotFound, "message not found", "NOT_FOUND")
+		return
+	}
+	if err != nil {
+		slog.Error("get trap raw", "id", id, "err", err)
+		writeError(w, http.StatusInternalServerError, "failed to get message", "GET_FAILED")
+		return
+	}
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	w.Write(msg.RawMIME) //nolint:errcheck
+}
+
 // GET /api/v1/trap/messages/:id/attachments/:attId
 func (h *Handler) getTrapAttachment(w http.ResponseWriter, r *http.Request) {
 	attID := chi.URLParam(r, "attId")

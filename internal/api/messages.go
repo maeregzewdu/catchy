@@ -14,6 +14,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	catchymail "github.com/maeregzewdu/catchy/internal/mail"
+	"github.com/maeregzewdu/catchy/internal/model"
 	"github.com/maeregzewdu/catchy/internal/store"
 )
 
@@ -131,6 +132,38 @@ func (h *Handler) deleteMessage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// GET /api/v1/accounts/:id/messages/:msgId/attachments
+func (h *Handler) listMessageAttachments(w http.ResponseWriter, r *http.Request) {
+	msgID := chi.URLParam(r, "msgId")
+	atts, err := h.store.ListAttachments(msgID)
+	if err != nil {
+		slog.Error("list message attachments", "id", msgID, "err", err)
+		writeError(w, http.StatusInternalServerError, "failed to list attachments", "LIST_FAILED")
+		return
+	}
+	if atts == nil {
+		atts = []model.Attachment{}
+	}
+	writeJSON(w, http.StatusOK, atts)
+}
+
+// GET /api/v1/accounts/:id/messages/:msgId/raw
+func (h *Handler) getMessageRawMIME(w http.ResponseWriter, r *http.Request) {
+	msgID := chi.URLParam(r, "msgId")
+	msg, err := h.store.GetMessage(msgID)
+	if errors.Is(err, store.ErrNotFound) {
+		writeError(w, http.StatusNotFound, "message not found", "NOT_FOUND")
+		return
+	}
+	if err != nil {
+		slog.Error("get message raw", "id", msgID, "err", err)
+		writeError(w, http.StatusInternalServerError, "failed to get message", "GET_FAILED")
+		return
+	}
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	w.Write(msg.RawMIME) //nolint:errcheck
 }
 
 // GET /api/v1/accounts/:id/messages/:msgId/attachments/:attId
