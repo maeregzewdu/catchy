@@ -1,4 +1,4 @@
-# catchy
+# Catchy
 
 A local email dev tool for catching outgoing mail from your applications.
 
