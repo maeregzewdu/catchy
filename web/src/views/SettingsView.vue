@@ -39,7 +39,7 @@ const smtpPort = computed(() => {
               <CardContent class="text-xs space-y-2">
                 <p class="text-muted-foreground">Point your app's SMTP settings here to catch outgoing mail:</p>
                 <pre class="bg-muted rounded p-3 font-mono overflow-x-auto">MAIL_MAILER=smtp
-MAIL_HOST=127.0.0.1
+MAIL_HOST=localhost
 MAIL_PORT={{ smtpPort }}
 MAIL_USERNAME=null
 MAIL_PASSWORD=null

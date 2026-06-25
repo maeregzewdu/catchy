@@ -68,11 +68,11 @@ func defaults() *Config {
 	dir := DefaultDir()
 	return &Config{
 		Server: ServerConfig{
-			Host: "127.0.0.1",
-			Port: 8080,
+			Host: "localhost",
+			Port: 8765,
 		},
 		Trap: TrapConfig{
-			Host: "127.0.0.1",
+			Host: "localhost",
 			Port: 1025,
 		},
 		Data: DataConfig{

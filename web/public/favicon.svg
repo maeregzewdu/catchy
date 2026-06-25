@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <defs>
+    <style>
+      .bg { fill: #7c3aed; }
+      @media (prefers-color-scheme: dark) { .bg { fill: #8b5cf6; } }
+    </style>
+  </defs>
+  <rect class="bg" width="32" height="32" rx="7"/>
+  <!-- Lucide Zap polygon (24x24) translated by (4,4) to center in 32x32 -->
+  <polygon points="17,6 7,18 16,18 15,26 25,14 16,14" fill="white"/>
+</svg>

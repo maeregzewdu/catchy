@@ -23,7 +23,7 @@ go build -o catchy ./cmd/catchy
 ./catchy serve
 ```
 
-Open `http://localhost:8080` in your browser.
+Open `http://localhost:8765` in your browser.
 
 The SMTP trap listens on `localhost:1025` by default. No auth required.
 
@@ -47,11 +47,11 @@ Catchy looks for a config file at `~/.catchy/config.toml`. It is created automat
 
 ```toml
 [server]
-host = "127.0.0.1"
-port = 8080
+host = "localhost"
+port = 8765
 
 [trap]
-host = "127.0.0.1"
+host = "localhost"
 port = 1025
 
 [data]
@@ -72,7 +72,7 @@ Point your app's SMTP settings at `localhost:1025`. No password needed.
 
 ```env
 MAIL_MAILER=smtp
-MAIL_HOST=127.0.0.1
+MAIL_HOST=localhost
 MAIL_PORT=1025
 MAIL_USERNAME=null
 MAIL_PASSWORD=null
@@ -83,7 +83,7 @@ MAIL_ENCRYPTION=null
 
 ```js
 const transporter = nodemailer.createTransport({
-  host: '127.0.0.1',
+  host: 'localhost',
   port: 1025,
   secure: false,
   ignoreTLS: true,
@@ -94,7 +94,7 @@ const transporter = nodemailer.createTransport({
 
 ```bash
 swaks --to test@example.com --from sender@dev.local \
-  --server 127.0.0.1:1025 \
+  --server localhost:1025 \
   --body "Hello from the trap"
 ```
 

@@ -57,7 +57,7 @@ func runSeed(args []string) error {
 		return fmt.Errorf("seed accounts: %w", err)
 	}
 
-	slog.Info("seed complete — run 'catchy serve' and open http://localhost:8080")
+	slog.Info("seed complete — run 'catchy serve' and open http://localhost:8765")
 	return nil
 }
 

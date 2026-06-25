@@ -50,7 +50,7 @@ const examples = [
         label: "Laravel",
         caption: "Add to your .env file",
         code: `MAIL_MAILER=smtp
-MAIL_HOST=127.0.0.1
+MAIL_HOST=localhost
 MAIL_PORT=1025
 MAIL_USERNAME=null
 MAIL_PASSWORD=null
@@ -62,7 +62,7 @@ MAIL_ENCRYPTION=null`,
         caption: "Using nodemailer",
         code: `const nodemailer = require('nodemailer')
 const transport = nodemailer.createTransport({
-  host: '127.0.0.1',
+  host: 'localhost',
   port: 1025,
   auth: false,
 })
@@ -78,7 +78,7 @@ await transport.sendMail({
         label: "swaks",
         caption: "Send a test email from the terminal",
         code: `swaks --to test@example.com \\
-      --server 127.0.0.1:1025 \\
+      --server localhost:1025 \\
       --header "Subject: Test from swaks"`,
     },
 ];
