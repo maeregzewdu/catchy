@@ -1,11 +1,9 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { SidebarInset, SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar'
 import { Input } from '@/components/ui/input'
-import { Separator } from '@/components/ui/separator'
 import { Search } from '@lucide/vue'
-import AppSidebar from '@/components/layout/AppSidebar.vue'
+import DashboardLayout from '@/components/layout/DashboardLayout.vue'
 import MessageList from '@/components/messages/MessageList.vue'
 import MessageDetail from '@/components/message/MessageDetail.vue'
 import { useMailStore } from '@/stores/mail'
@@ -46,42 +44,34 @@ function onStar(id: string, starred: boolean) {
 </script>
 
 <template>
-  <SidebarProvider>
-    <AppSidebar />
-    <SidebarInset class="flex flex-col min-h-0">
-      <header class="flex items-center h-12 px-3 gap-2 border-b border-border shrink-0">
-        <SidebarTrigger />
-        <Separator orientation="vertical" class="h-4" />
-        <span class="text-sm font-medium">Search</span>
-      </header>
-
-      <div class="flex flex-1 min-h-0">
-        <div class="w-80 shrink-0 border-r border-border flex flex-col min-h-0">
-          <!-- Search input -->
-          <div class="p-3 border-b border-border shrink-0">
-            <div class="relative">
-              <Search class="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                v-model="query"
-                placeholder="Search messages…"
-                class="pl-8"
-              />
-            </div>
+  <DashboardLayout :breadcrumbs="[{ label: 'Search' }]">
+    <div class="flex flex-1 min-h-0">
+      <div class="w-80 shrink-0 border-r border-border flex flex-col min-h-0">
+        <!-- Search input -->
+        <div class="p-3 border-b border-border shrink-0">
+          <div class="relative">
+            <Search class="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              v-model="query"
+              placeholder="Search messages…"
+              class="pl-8"
+            />
           </div>
+        </div>
 
-          <MessageList
-            :messages="results"
-            :loading="loading"
-            :selected-id="selectedId"
-            :empty-text="query.trim() ? 'No results' : 'Type to search all messages'"
-            @select="onSelect"
-            @star="onStar"
-          />
-        </div>
-        <div class="flex-1 min-w-0 min-h-0">
-          <MessageDetail />
-        </div>
+        <MessageList
+          :messages="results"
+          :loading="loading"
+          :selected-id="selectedId"
+          :empty-title="query.trim() ? 'No results' : 'Search your messages'"
+          :empty-description="query.trim() ? `No messages matched &quot;${query}&quot;` : 'Type a query above to search across all mailboxes.'"
+          @select="onSelect"
+          @star="onStar"
+        />
       </div>
-    </SidebarInset>
-  </SidebarProvider>
+      <div class="flex-1 min-w-0 min-h-0">
+        <MessageDetail />
+      </div>
+    </div>
+  </DashboardLayout>
 </template>

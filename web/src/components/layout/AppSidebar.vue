@@ -59,7 +59,7 @@ function isActive(path: string) {
                   <span class="flex-1 truncate">Trap Inbox</span>
                   <Badge
                     v-if="trapUnread > 0"
-                    variant="destructive"
+                    variant="default"
                     class="ml-auto h-5 min-w-5 px-1 text-xs"
                   >
                     {{ trapUnread > 99 ? '99+' : trapUnread }}

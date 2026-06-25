@@ -1,11 +1,10 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { SidebarInset, SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar'
 import { Separator } from '@/components/ui/separator'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Server } from '@lucide/vue'
-import AppSidebar from '@/components/layout/AppSidebar.vue'
+import DashboardLayout from '@/components/layout/DashboardLayout.vue'
 import AccountCard from '@/components/settings/AccountCard.vue'
 import AddAccountForm from '@/components/settings/AddAccountForm.vue'
 import { useAccountStore } from '@/stores/accounts'
@@ -22,15 +21,7 @@ const smtpPort = computed(() => {
 </script>
 
 <template>
-  <SidebarProvider>
-    <AppSidebar />
-    <SidebarInset class="flex flex-col min-h-0">
-      <header class="flex items-center h-12 px-3 gap-2 border-b border-border shrink-0">
-        <SidebarTrigger />
-        <Separator orientation="vertical" class="h-4" />
-        <span class="text-sm font-medium">Settings</span>
-      </header>
-
+  <DashboardLayout :breadcrumbs="[{ label: 'Settings' }]">
       <ScrollArea class="flex-1">
         <div class="max-w-2xl mx-auto p-6 space-y-8">
 
@@ -85,6 +76,5 @@ MAIL_ENCRYPTION=null</pre>
 
         </div>
       </ScrollArea>
-    </SidebarInset>
-  </SidebarProvider>
+  </DashboardLayout>
 </template>

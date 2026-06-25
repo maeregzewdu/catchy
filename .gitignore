@@ -1,0 +1,31 @@
+# Go binaries
+/catchy
+/catchy.exe
+*.exe
+*.test
+*.out
+
+# Built frontend (regenerate with: cd web && npm run build)
+# The .gitkeep placeholder is kept so //go:embed all:static still compiles.
+/internal/api/static/*
+!/internal/api/static/.gitkeep
+
+# Node / Vite
+node_modules/
+web/dist/
+*.log
+npm-debug.log*
+
+# Local data / secrets
+*.db
+*.db-shm
+*.db-wal
+.env
+.env.*
+
+# OS / editor cruft
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp

@@ -7,6 +7,7 @@ export const useMailStore = defineStore('mail', () => {
   // Trap inbox
   const trapMessages = ref<Message[]>([])
   const trapLoading = ref(false)
+  const trapInitialized = ref(false)
 
   // Per-account per-folder messages; key = `${accountId}:${folder}`
   const folderMessages = ref<Record<string, Message[]>>({})
@@ -30,9 +31,10 @@ export const useMailStore = defineStore('mail', () => {
   // ── Trap ──────────────────────────────────────────────────────────────────
 
   async function fetchTrapMessages() {
-    trapLoading.value = true
+    if (!trapInitialized.value) trapLoading.value = true
     try {
       trapMessages.value = await api.listTrapMessages()
+      trapInitialized.value = true
     } catch {
       // Silently ignore polling errors
     } finally {
